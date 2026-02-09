@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAction } from "convex/react";
 import { Play, Zap, Clock, Pin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Streamdown } from "streamdown";
 
 import { api } from "../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
@@ -325,8 +326,8 @@ export default function Workbench() {
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col h-full">
-                      <div className="flex-1 p-4 text-sm leading-relaxed text-foreground/90 overflow-y-auto max-h-[400px]">
-                        {extractContent(r.response)}
+                      <div className="flex-1 p-4 text-sm leading-relaxed text-foreground/90 overflow-y-auto max-h-[400px] markdown-content">
+                        <Streamdown>{extractContent(r.response)}</Streamdown>
                       </div>
 
                       <div className="mt-auto p-3 border-t bg-muted/5 flex items-center justify-between text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">

@@ -17,6 +17,7 @@ import {
   Hash,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Streamdown } from "streamdown";
 
 import { api } from "../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
@@ -300,9 +301,9 @@ function EntryRow({
                       <Copy className="size-3" /> Copy
                     </Button>
                   </div>
-                  <p className="text-sm max-h-80 overflow-y-auto leading-relaxed whitespace-pre-wrap">
-                    {response}
-                  </p>
+                  <div className="text-sm max-h-80 overflow-y-auto leading-relaxed markdown-content">
+                    <Streamdown>{response}</Streamdown>
+                  </div>
                 </div>
               </div>
 

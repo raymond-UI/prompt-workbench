@@ -4,7 +4,7 @@ import HistoryViewer from "@/components/history-viewer";
 
 export default function HistoryPage() {
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-4">
+    <div className="flex flex-col p-4">
       <div className="mb-4">
         <h1 className="text-lg font-semibold tracking-tight">Time Travel</h1>
         <p className="text-xs text-muted-foreground">
