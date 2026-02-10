@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAction } from "convex/react";
-import { Play, Zap, Clock, Pin, Loader2, Eye, FileText } from "lucide-react";
+import { Play, Zap, Clock, Pin, Loader2, Eye, FileText, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
@@ -107,8 +107,8 @@ export default function Workbench() {
     }
   }
 
-  async function handleRun(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleRun(e?: React.FormEvent, forceRefresh = false) {
+    e?.preventDefault();
     if (!prompt.trim() || selectedModels.length === 0 || isRunning) return;
 
     setIsRunning(true);
@@ -124,8 +124,12 @@ export default function Workbench() {
         pin: pinResults || undefined,
         metadata: parsedMeta,
         modelVersion: modelVersion.trim() || undefined,
+        forceRefresh: forceRefresh || undefined,
       });
       setResults(res as ExperimentResult[]);
+      if (forceRefresh) {
+        toast.success("Forced refresh — check Time Travel for response diffs");
+      }
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Experiment failed");
@@ -267,6 +271,17 @@ export default function Workbench() {
                     <Eye className="size-3.5" />
                   )}
                   Peek
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={isRunning || !prompt.trim() || selectedModels.length === 0}
+                  onClick={() => handleRun(undefined, true)}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className="size-3.5" />
+                  Force Refresh
                 </Button>
                 <Button
                   type="submit"

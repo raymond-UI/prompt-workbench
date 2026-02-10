@@ -142,6 +142,7 @@ export const runExperiment = action({
     pin: v.optional(v.boolean()),
     metadata: v.optional(v.any()),
     modelVersion: v.optional(v.string()),
+    forceRefresh: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const results = await Promise.all(
@@ -152,21 +153,37 @@ export const runExperiment = action({
           temperature: args.temperature,
         };
 
-        const cached = await cache.lookup(ctx, {
-          request,
-          modelVersion: args.modelVersion,
-        });
+        // Skip cache lookup when force-refreshing (enables time travel)
+        if (!args.forceRefresh) {
+          const cached = await cache.lookup(ctx, {
+            request,
+            modelVersion: args.modelVersion,
+          });
 
-        if (cached) {
-          return {
-            model,
-            response: cached.response,
-            fromCache: true,
-            cacheKey: cached.cacheKey,
-            hitCount: cached.hitCount,
-            ttlTier: cached.ttlTier,
-            latencyMs: 0,
-          };
+          if (cached) {
+            // Re-store to update tags/metadata/pin on existing entries
+            const tags = args.tag ? [args.tag] : undefined;
+            if (tags || args.metadata || args.pin) {
+              await cache.store(ctx, {
+                request,
+                response: cached.response,
+                tags,
+                pin: args.pin,
+                metadata: args.metadata,
+                modelVersion: args.modelVersion,
+              });
+            }
+
+            return {
+              model,
+              response: cached.response,
+              fromCache: true,
+              cacheKey: cached.cacheKey,
+              hitCount: cached.hitCount,
+              ttlTier: args.pin ? 2 : cached.ttlTier,
+              latencyMs: 0,
+            };
+          }
         }
 
         const { response, latencyMs } = await callLLM(
