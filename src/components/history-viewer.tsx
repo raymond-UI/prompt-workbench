@@ -38,12 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const MODELS = [
-  { id: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
-  { id: "anthropic/claude-3.5-haiku", label: "Claude 3.5 Haiku" },
-  { id: "google/gemini-2.0-flash-001", label: "Gemini 2.0 Flash" },
-  { id: "qwen/qwen3-coder-next", label: "Qwen 3 Coder Next" },
-] as const;
+import { ModelSelector } from "@/components/model-selector";
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -153,18 +148,7 @@ export default function HistoryViewer() {
                 <Label className="text-[10px] uppercase text-muted-foreground font-semibold mb-1.5 block">
                   Model
                 </Label>
-                <Select value={model} onValueChange={(v) => v && setModel(v)}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MODELS.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ModelSelector value={model} onValueChange={setModel} />
               </div>
 
               <div className="w-24">

@@ -10,6 +10,7 @@
 
 import type * as experiments from "../experiments.js";
 import type * as llm from "../llm.js";
+import type * as models from "../models.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   experiments: typeof experiments;
   llm: typeof llm;
+  models: typeof models;
 }>;
 
 /**

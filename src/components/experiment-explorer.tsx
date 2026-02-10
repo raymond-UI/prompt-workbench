@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import {
   ChevronDown,
@@ -15,6 +15,8 @@ import {
   Check,
   AlertCircle,
   Hash,
+  FileText,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -115,9 +117,16 @@ function EntryRow({
   const [isInvalidating, setIsInvalidating] = useState(false);
   const invalidate = useMutation(api.llm.invalidateEntries);
 
-  const tier = TIER_LABELS[entry.ttlTier] ?? TIER_LABELS[0];
-  const prompt = extractPrompt(entry.request);
-  const response = extractContent(entry.response);
+  // Live fetch via get() when expanded — demonstrates the get-by-key API
+  const liveEntry = useQuery(
+    api.llm.getEntry,
+    isExpanded ? { cacheKey: entry.cacheKey } : "skip",
+  ) as CacheEntry | null | undefined;
+
+  const displayEntry = liveEntry ?? entry;
+  const tier = TIER_LABELS[displayEntry.ttlTier] ?? TIER_LABELS[0];
+  const prompt = extractPrompt(displayEntry.request);
+  const response = extractContent(displayEntry.response);
 
   const copyKey = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -239,6 +248,12 @@ function EntryRow({
 
       {isExpanded && (
         <div className="px-4 pb-4 space-y-4 bg-muted/20 border-t border-muted animate-in slide-in-from-top-2 duration-200">
+          {liveEntry !== undefined && (
+            <div className="flex items-center gap-1.5 mt-2 text-[9px] text-muted-foreground">
+              <RefreshCw className="size-2.5 animate-spin" style={{ animationDuration: "3s" }} />
+              <span>Live via <code className="font-mono">get()</code> — hits: {displayEntry.hitCount}</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
             <div className="space-y-3">
               <div>
@@ -307,9 +322,9 @@ function EntryRow({
                 </div>
               </div>
 
-              {entry.tags && entry.tags.length > 0 && (
+              {displayEntry.tags && displayEntry.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {entry.tags.map((t) => (
+                  {displayEntry.tags.map((t) => (
                     <Badge
                       key={t}
                       variant="secondary"
@@ -318,6 +333,18 @@ function EntryRow({
                       #{t}
                     </Badge>
                   ))}
+                </div>
+              )}
+
+              {displayEntry.metadata != null && (
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <FileText className="size-3" />
+                    Metadata
+                  </Label>
+                  <pre className="mt-1 font-mono bg-background border rounded-md p-2 text-[10px] leading-relaxed overflow-x-auto">
+                    {JSON.stringify(displayEntry.metadata, null, 2)}
+                  </pre>
                 </div>
               )}
             </div>

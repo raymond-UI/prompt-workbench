@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAction } from "convex/react";
-import { Play, Zap, Clock, Pin, Loader2 } from "lucide-react";
+import { Play, Zap, Clock, Pin, Loader2, Eye, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
@@ -14,12 +14,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const MODELS = [
-  { id: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
-  { id: "anthropic/claude-3.5-haiku", label: "Claude 3.5 Haiku" },
-  { id: "google/gemini-2.0-flash-001", label: "Gemini 2.0 Flash" },
-  { id: "qwen/qwen3-coder-next", label: "Qwen 3 Coder Next" },
-] as const;
+import { ModelSelector } from "@/components/model-selector";
+import { useQuery } from "convex/react";
+import { X, Plus } from "lucide-react";
 
 const TIER_LABELS: Record<
   number,
@@ -54,8 +51,9 @@ function extractContent(response: unknown): string {
   return JSON.stringify(response, null, 2);
 }
 
-function getModelLabel(id: string): string {
-  return MODELS.find((m) => m.id === id)?.label ?? id.split("/").pop() ?? id;
+function getModelLabel(id: string, allModels?: any[]): string {
+  const m = allModels?.find((m) => m.id === id);
+  return m?.name ?? id.split("/").pop() ?? id;
 }
 
 export default function Workbench() {
@@ -69,15 +67,44 @@ export default function Workbench() {
   const [temperature, setTemperature] = useState("0.7");
   const [tag, setTag] = useState("");
   const [modelVersion, setModelVersion] = useState("");
+  const [pinResults, setPinResults] = useState(false);
+  const [metadata, setMetadata] = useState("");
   const [isRunning, setIsRunning] = useState(false);
+  const [isPeeking, setIsPeeking] = useState(false);
+  const [peekResults, setPeekResults] = useState<
+    Array<{ model: string; cached: boolean; cacheKey: string | null; hitCount: number; ttlTier: number }> | null
+  >(null);
   const [results, setResults] = useState<ExperimentResult[]>([]);
 
   const runExperiment = useAction(api.experiments.runExperiment);
+  const peekExperiment = useAction(api.experiments.peekExperiment);
 
   function toggleModel(id: string) {
     setSelectedModels((prev) =>
       prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
     );
+  }
+
+  async function handlePeek() {
+    if (!prompt.trim() || selectedModels.length === 0 || isPeeking) return;
+    setIsPeeking(true);
+    setPeekResults(null);
+    try {
+      const res = await peekExperiment({
+        messages: [{ role: "user", content: prompt }],
+        models: selectedModels,
+        temperature: parseFloat(temperature) || 0.7,
+        modelVersion: modelVersion.trim() || undefined,
+      });
+      setPeekResults(res as typeof peekResults);
+      const cached = (res as any[]).filter((r) => r.cached).length;
+      toast.success(`Peek: ${cached}/${selectedModels.length} cached (no hit count incremented)`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Peek failed");
+    } finally {
+      setIsPeeking(false);
+    }
   }
 
   async function handleRun(e: React.FormEvent) {
@@ -86,12 +113,16 @@ export default function Workbench() {
 
     setIsRunning(true);
     setResults([]);
+    setPeekResults(null);
+    const parsedMeta = metadata.trim() ? { notes: metadata.trim() } : undefined;
     try {
       const res = await runExperiment({
         messages: [{ role: "user", content: prompt }],
         models: selectedModels,
         temperature: parseFloat(temperature) || 0.7,
         tag: tag.trim() || undefined,
+        pin: pinResults || undefined,
+        metadata: parsedMeta,
         modelVersion: modelVersion.trim() || undefined,
       });
       setResults(res as ExperimentResult[]);
@@ -129,20 +160,35 @@ export default function Workbench() {
             {/* Model selection */}
             <div>
               <Label className="mb-2 block">Models</Label>
-              <div className="flex flex-wrap gap-2">
-                {MODELS.map((m) => (
-                  <label
-                    key={m.id}
-                    className="flex items-center gap-1.5 cursor-pointer"
+              <div className="flex flex-wrap gap-2 mb-3">
+                {selectedModels.map((id) => (
+                  <Badge
+                    key={id}
+                    variant="secondary"
+                    className="pl-2 pr-1 h-7 gap-1"
                   >
-                    <Checkbox
-                      checked={selectedModels.includes(m.id)}
-                      onCheckedChange={() => toggleModel(m.id)}
-                    />
-                    <span className="text-xs">{m.label}</span>
-                  </label>
+                    <span className="max-w-[120px] truncate">
+                      {id.split("/").pop()}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-4 hover:bg-transparent"
+                      onClick={() => toggleModel(id)}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </Badge>
                 ))}
               </div>
+              <ModelSelector
+                value=""
+                onValueChange={(id) => {
+                  if (!selectedModels.includes(id)) {
+                    setSelectedModels((prev) => [...prev, id]);
+                  }
+                }}
+              />
             </div>
 
             <div className="flex flex-wrap gap-3 items-end">
@@ -181,22 +227,63 @@ export default function Workbench() {
                   className="mt-1"
                 />
               </div>
+            </div>
 
-              <Button
-                type="submit"
-                disabled={
-                  isRunning || !prompt.trim() || selectedModels.length === 0
-                }
-              >
-                {isRunning ? (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                ) : (
-                  <Play className="mr-1.5 size-3.5" />
-                )}
-                {isRunning
-                  ? "Running..."
-                  : `Run (${selectedModels.length} model${selectedModels.length !== 1 ? "s" : ""})`}
-              </Button>
+            <div>
+              <Label htmlFor="metadata">Metadata / Notes</Label>
+              <Input
+                id="metadata"
+                value={metadata}
+                onChange={(e) => setMetadata(e.target.value)}
+                placeholder="e.g. testing tone variations"
+                className="mt-1"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={pinResults}
+                  onCheckedChange={(v) => setPinResults(v === true)}
+                />
+                <span className="text-xs flex items-center gap-1">
+                  <Pin className="size-3" />
+                  Pin results (never expire)
+                </span>
+              </label>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isPeeking || isRunning || !prompt.trim() || selectedModels.length === 0}
+                  onClick={handlePeek}
+                  className="gap-1.5"
+                >
+                  {isPeeking ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Eye className="size-3.5" />
+                  )}
+                  Peek
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    isRunning || !prompt.trim() || selectedModels.length === 0
+                  }
+                >
+                  {isRunning ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <Play className="mr-1.5 size-3.5" />
+                  )}
+                  {isRunning
+                    ? "Running..."
+                    : `Run (${selectedModels.length} model${selectedModels.length !== 1 ? "s" : ""})`}
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>
@@ -225,14 +312,16 @@ export default function Workbench() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {MODELS.map((m) => {
-            const r = results.find((res) => res.model === m.id);
-            const isSelected = selectedModels.includes(m.id);
+          {selectedModels.map((modelId) => {
+            const r = results.find((res) => res.model === modelId);
+            const peek = peekResults?.find((p) => p.model === modelId);
+            const isSelected = true;
             const tier = r ? (TIER_LABELS[r.ttlTier] ?? TIER_LABELS[0]) : null;
+            const modelName = modelId.split("/").pop();
 
             return (
               <Card
-                key={m.id}
+                key={modelId}
                 className={`flex flex-col min-h-[300px] transition-all duration-300 border ${
                   !isSelected
                     ? "opacity-40 border-transparent bg-muted/30 grayscale"
@@ -254,7 +343,7 @@ export default function Workbench() {
                         }`}
                       />
                       <CardTitle className="text-xs font-bold tracking-tight truncate">
-                        {m.label}
+                        {modelName}
                       </CardTitle>
                     </div>
                     {r && (
@@ -292,14 +381,18 @@ export default function Workbench() {
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-3">
                       <div
                         className={`p-3 rounded-2xl ${
-                          isSelected
-                            ? "bg-primary/5 text-primary"
-                            : "bg-muted text-muted-foreground/30"
+                          peek?.cached
+                            ? "bg-sky-500/10 text-sky-600"
+                            : isSelected
+                              ? "bg-primary/5 text-primary"
+                              : "bg-muted text-muted-foreground/30"
                         }`}
                       >
                         {isSelected ? (
                           isRunning ? (
                             <Loader2 className="size-5 animate-spin" />
+                          ) : peek?.cached ? (
+                            <Eye className="size-5" />
                           ) : (
                             <Play className="size-5" />
                           )
@@ -312,14 +405,22 @@ export default function Workbench() {
                           {isSelected
                             ? isRunning
                               ? "Processing"
-                              : "Standby"
+                              : peek
+                                ? peek.cached
+                                  ? "Cached"
+                                  : "Not cached"
+                                : "Standby"
                             : "Disabled"}
                         </p>
                         <p className="text-[10px] text-muted-foreground/60 px-4 leading-normal">
                           {isSelected
                             ? isRunning
                               ? "Waiting for model response..."
-                              : "Ready to test this model"
+                              : peek
+                                ? peek.cached
+                                  ? `${peek.hitCount} hits — run to increment`
+                                  : "No cache entry — will call LLM"
+                                : "Ready to test this model"
                             : "Enable in setup to compare"}
                         </p>
                       </div>

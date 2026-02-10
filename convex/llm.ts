@@ -43,6 +43,19 @@ export const getEntry = query({
   },
 });
 
+export const peekEntry = query({
+  args: {
+    request: v.any(),
+    modelVersion: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await cache.peek(ctx, {
+      request: args.request,
+      modelVersion: args.modelVersion,
+    });
+  },
+});
+
 export const getHistory = query({
   args: { request: v.any() },
   handler: async (ctx, args) => {

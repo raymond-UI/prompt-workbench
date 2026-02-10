@@ -1,6 +1,7 @@
 "use node";
 
 import { action } from "./_generated/server";
+import { api } from "./_generated/api";
 import { components } from "./_generated/api";
 import { LLMCache } from "@mzedstudio/llm-cache";
 import { v } from "convex/values";
@@ -138,6 +139,8 @@ export const runExperiment = action({
     models: v.array(v.string()),
     temperature: v.number(),
     tag: v.optional(v.string()),
+    pin: v.optional(v.boolean()),
+    metadata: v.optional(v.any()),
     modelVersion: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -177,6 +180,8 @@ export const runExperiment = action({
           request,
           response,
           tags,
+          pin: args.pin,
+          metadata: args.metadata,
           modelVersion: args.modelVersion,
         });
 
@@ -186,8 +191,47 @@ export const runExperiment = action({
           fromCache: false,
           cacheKey,
           hitCount: 0,
-          ttlTier: 0,
+          ttlTier: args.pin ? 2 : 0,
           latencyMs,
+        };
+      }),
+    );
+
+    return results;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Peek – read-only cache probe (no hit count increment)
+// ---------------------------------------------------------------------------
+
+export const peekExperiment = action({
+  args: {
+    messages: v.array(v.object({ role: v.string(), content: v.string() })),
+    models: v.array(v.string()),
+    temperature: v.number(),
+    modelVersion: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results = await Promise.all(
+      args.models.map(async (model) => {
+        const request = {
+          messages: args.messages,
+          model,
+          temperature: args.temperature,
+        };
+
+        const cached = await cache.peek(ctx, {
+          request,
+          modelVersion: args.modelVersion,
+        });
+
+        return {
+          model,
+          cached: !!cached,
+          cacheKey: cached?.cacheKey ?? null,
+          hitCount: cached?.hitCount ?? 0,
+          ttlTier: cached?.ttlTier ?? 0,
         };
       }),
     );
@@ -209,3 +253,37 @@ export const cleanupExpired = action({
     return await cache.cleanup(ctx, args);
   },
 });
+
+// ---------------------------------------------------------------------------
+// Model Selection from OpenRouter
+// ---------------------------------------------------------------------------
+
+export const getOpenRouterModels = action({
+  args: {},
+  handler: async (ctx) => {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENROUTER_API_KEY is not set.");
+    }
+
+    const response = await fetch("https://openrouter.ai/api/v1/models", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://prompt-workbench.vercel.app",
+        "X-Title": "Prompt Workbench",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch models: ${response.statusText}`);
+    }
+
+    const { data } = (await response.json()) as { data: any[] };
+
+    // Sync to database for fast query access
+    await ctx.runMutation(api.models.syncModels, { models: data });
+
+    return data;
+  },
+});
+
