@@ -283,23 +283,25 @@ export default function Workbench() {
                   <RefreshCw className="size-3.5" />
                   Force Refresh
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    isRunning || !prompt.trim() || selectedModels.length === 0
-                  }
-                >
-                  {isRunning ? (
-                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                  ) : (
-                    <Play className="mr-1.5 size-3.5" />
-                  )}
-                  {isRunning
-                    ? "Running..."
-                    : `Run (${selectedModels.length} model${selectedModels.length !== 1 ? "s" : ""})`}
-                </Button>
               </div>
             </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={
+                isRunning || !prompt.trim() || selectedModels.length === 0
+              }
+            >
+              {isRunning ? (
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              ) : (
+                <Play className="mr-1.5 size-3.5" />
+              )}
+              {isRunning
+                ? "Running..."
+                : `Run (${selectedModels.length} model${selectedModels.length !== 1 ? "s" : ""})`}
+            </Button>
           </form>
         </CardContent>
       </Card>
