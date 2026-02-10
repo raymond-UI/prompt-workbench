@@ -11,6 +11,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.1.0
         version: 1.1.0(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@convex-dev/rate-limiter':
+        specifier: ^0.3.2
+        version: 0.3.2(convex@1.31.7(react@19.2.3))(react@19.2.3)
       '@mzedstudio/llm-cache':
         specifier: ^0.1.0
         version: 0.1.0(convex@1.31.7(react@19.2.3))
@@ -34,7 +37,7 @@ importers:
         version: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       openai:
         specifier: ^6.18.0
-        version: 6.18.0(zod@4.3.6)
+        version: 6.18.0(zod@3.25.76)
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -250,6 +253,15 @@ packages:
       react-dom: ^17 || ^18 || ^19
     peerDependenciesMeta:
       '@types/react':
+        optional: true
+
+  '@convex-dev/rate-limiter@0.3.2':
+    resolution: {integrity: sha512-+oBPsBfFbzdxiF/9XaaTQmVnvDlvEfg/c69/v8LxTbw4VLuiflIKlfnPQL8OS0azXQQ11hcPWHmU8ytFmHKDXA==}
+    peerDependencies:
+      convex: ^1.24.8
+      react: ^18.2.0 || ^19.0.0
+    peerDependenciesMeta:
+      react:
         optional: true
 
   '@dotenvx/dotenvx@1.52.0':
@@ -4592,6 +4604,12 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.13
 
+  '@convex-dev/rate-limiter@0.3.2(convex@1.31.7(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      convex: 1.31.7(react@19.2.3)
+    optionalDependencies:
+      react: 19.2.3
+
   '@dotenvx/dotenvx@1.52.0':
     dependencies:
       commander: 11.1.0
@@ -8142,9 +8160,9 @@ snapshots:
       powershell-utils: 0.1.0
       wsl-utils: 0.3.1
 
-  openai@6.18.0(zod@4.3.6):
+  openai@6.18.0(zod@3.25.76):
     optionalDependencies:
-      zod: 4.3.6
+      zod: 3.25.76
 
   optionator@0.9.4:
     dependencies:

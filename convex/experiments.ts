@@ -1,8 +1,7 @@
 "use node";
 
 import { action } from "./_generated/server";
-import { api } from "./_generated/api";
-import { components } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import { LLMCache } from "@mzedstudio/llm-cache";
 import { v } from "convex/values";
 import OpenAI from "openai";
@@ -79,6 +78,9 @@ export const runSingle = action({
     modelVersion: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Rate limit: 1 LLM call
+    await ctx.runMutation(internal.rateLimits.checkLlmCallLimit, { count: 1 });
+
     const request = {
       messages: args.messages,
       model: args.model,
@@ -145,6 +147,17 @@ export const runExperiment = action({
     forceRefresh: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Rate limit: count = number of models (pessimistic — before cache check)
+    const modelCount = args.models.length;
+    if (args.forceRefresh) {
+      await ctx.runMutation(internal.rateLimits.checkForceRefreshLimit, {
+        count: modelCount,
+      });
+    }
+    await ctx.runMutation(internal.rateLimits.checkLlmCallLimit, {
+      count: modelCount,
+    });
+
     const results = await Promise.all(
       args.models.map(async (model) => {
         const request = {
@@ -278,6 +291,9 @@ export const cleanupExpired = action({
 export const getOpenRouterModels = action({
   args: {},
   handler: async (ctx) => {
+    // Rate limit: model refresh (3/hour)
+    await ctx.runMutation(internal.rateLimits.checkModelRefreshLimit, {});
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       throw new Error("OPENROUTER_API_KEY is not set.");

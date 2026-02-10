@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { ModelSelector } from "@/components/model-selector";
+import { getRateLimitMessage } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import { X, Plus } from "lucide-react";
 
@@ -132,7 +133,8 @@ export default function Workbench() {
       }
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "Experiment failed");
+      const rateLimitMsg = getRateLimitMessage(err);
+      toast.error(rateLimitMsg ?? (err instanceof Error ? err.message : "Experiment failed"));
     } finally {
       setIsRunning(false);
     }

@@ -51,7 +51,8 @@ export function ModelSelector({
       await refreshModels();
       toast.success("Model list updated from OpenRouter");
     } catch (err) {
-      toast.error("Failed to refresh models");
+      const { getRateLimitMessage } = await import("@/lib/utils");
+      toast.error(getRateLimitMessage(err) ?? "Failed to refresh models");
     } finally {
       setIsRefreshing(false);
     }
